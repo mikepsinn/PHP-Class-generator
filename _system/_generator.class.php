@@ -1,30 +1,24 @@
 <?php
-
+require_once(__DIR__ . '/../../../slim/vendor/autoload.php');
 /**********************************************************************
  * ClassGenerator.class.php
  **********************************************************************/
-
 use Quantimodo\Api\Model\StringHelper;
-
 define('PERMISSION_EXCEPTION', 'Permission error : No permission to write on ' . CLASSGENERATOR_DIR . '.');
 define('SERVER_EXCEPTION', 'Host error : Enter a valid host.');
 define('BASE_EXCEPTION', 'Database error : Enter a valid database.');
 define('AUTH_EXCEPTION', 'Authentication error : Enter a valid user name and password.');
-
 class ClassGenerator
 {
-
     private $exception;
     private $str_replace = array('-');
     private $str_replace_file = array();
     private $str_replace_column = array(' ', '-');
     private $skip_table = array();
-
     public function ClassGenerator()
     {
         $this->generateClasses($this->getTables());
     }
-
     private function generateClasses($tables)
     {
         foreach ($tables as $table => $table_type) {
@@ -37,20 +31,16 @@ class ClassGenerator
                     $this->str_replace_column = array(' ', 'fld_', '-');
                 }
                 $content = '<?php' . NL . NL;
-
                 $content .= '/**' . NL;
                 $content .= ' * ' . str_replace($this->str_replace_file, '', $table) . '.class.php' . NL;
                 $content .= ' * ' . $this->getTableComment($table) . NL;
                 $content .= ' **/' . NL;
-
                 /***********************************************************************
                  * CLASS
                  ************************************************************************/
                 $type = ($table_type == 'BASE TABLE') ? 'QMModel' : 'View';
                 $prefix = ($table_type == 'BASE TABLE') ? '' : 'V_';
                 $content .= 'class ' . StringHelper::singularize($class) . ' extends ' . $type . ' {' . NL . NL;
-
-
                 /***********************************************************************
                  * VARIABLES
                  ************************************************************************/
@@ -84,7 +74,6 @@ class ClassGenerator
                 //$content .= TAB . 'protected $RESULT = array();' . NL;
                 $content .= TAB . 'protected static $FOREIGN_KEYS = [';
                 if (!empty($foreignKeyTable)) {
-
                     $and = '';
                     foreach ($columns as $column) {
                         if (!empty($foreignKeyTable[$column])) {
@@ -92,11 +81,9 @@ class ClassGenerator
                             $and = ',';
                         }
                     }
-
                 }
                 $content .= ');';
                 $content .= NL . NL . NL;
-
                 foreach ($columns as $column) {
                     if (!empty($columns_info[$column]['Comment'])) {
                         $content .= TAB . '/**' . NL;
@@ -110,11 +97,9 @@ class ClassGenerator
                     }
                     $list_columns[] = $column;
                 }
-
                 //$content .= TAB.'public function __construct($array = array()) {'.NL;
                 //$content .= TAB.TAB.'if (!empty($array)) { $this = '.$class.'::readArray($array); }'.NL;
                 //$content .= TAB.'}'.NL.NL;
-
                 /***********************************************************************
                  * SETTERS
                  ************************************************************************/
@@ -130,8 +115,6 @@ class ClassGenerator
                     }
                 }
                 $content .= NL;
-
-
                 /***********************************************************************
                  * GETTERS
                  ************************************************************************/
@@ -147,70 +130,55 @@ class ClassGenerator
                     }
                 }
                 $content .= NL;
-
                 $content .= '}' . NL;
-
                 // Write file
                 $this->createClassFile($prefix . str_replace($this->str_replace_file, '', $table), $content);
             }
         }
     }
-
     private function getTableComment($table)
     {
         $result = Database::select('SHOW TABLE STATUS WHERE NAME="' . $table . '"');
-
         foreach ($result as $key => $column) {
             if (!empty($column['Comment'])) {
                 return $column['Comment'];
             } else
                 return '';
         }
-
         return '';
     }
-
     private function getColumns($table)
     {
         $result = Database::select('SHOW COLUMNS FROM `' . $table . '`');
         $columns = array();
-
         foreach ($result as $key => $column)
             $columns[$key] = $column['Field'];
-
         return $columns;
     }
-
     private function getColumnsInfo($table)
     {
         $result = Database::select('SHOW FULL COLUMNS FROM `' . $table . '`');
         $columns = array();
-
         foreach ($result as $key => $column) {
             $columns[$column['Field']]['Comment'] = $column['Comment'];
             $columns[$column['Field']]['Type'] = $column['Type'];
         }
         return $columns;
     }
-
     private function getForeignKeys($table)
     {
         $result = Database::select('SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_SCHEMA, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_NAME IS NOT NULL AND TABLE_NAME = :table', [':table' => $table]);
         $columns = array();
-
         foreach ($result as $key => $column) {
             if ($column['REFERENCED_TABLE_SCHEMA'] == dbdatabase)
                 $columns[$column['COLUMN_NAME']] = str_replace($this->str_replace, '', $column['REFERENCED_TABLE_NAME']);
         }
-
         return $columns;
     }
-
     private function getForeignKeyTable($table)
     {
         $result = Database::select('SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_SCHEMA, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_NAME IS NOT NULL AND TABLE_NAME = :table', [':table' => $table]);
         $columns = array();
-
         foreach ($result as $key => $column) {
             if ($column['REFERENCED_TABLE_SCHEMA'] == dbdatabase) {
                 //$columns[$column['COLUMN_NAME']] = $column['REFERENCED_TABLE_SCHEMA'].'.'.$column['REFERENCED_TABLE_NAME'].'.'.$column['REFERENCED_COLUMN_NAME'];
@@ -219,24 +187,19 @@ class ClassGenerator
                 $columns[$column['COLUMN_NAME']]['DATABASE_NAME'] = $column['REFERENCED_TABLE_SCHEMA'];
             }
         }
-
         return $columns;
     }
-
     public function getPrimaryKeys($table)
     {
         $result = Database::select('SHOW COLUMNS FROM `' . $table . '`');
         $pKeys = array();
-
         foreach ($result as $key => $column) {
             if ($column['Key'] == 'PRI') {
                 $pKeys[$key] = $column['Field'];
             }
         }
-
         return $pKeys;
     }
-
     private function mapMysqlTypeWithPhpType($type)
     {
         if (strpos($type, 'int') !== FALSE) {
@@ -251,7 +214,6 @@ class ClassGenerator
             return 'string';
         }
     }
-
     private function createClassFile($file_to_save, $text_to_save)
     {
         $file = CLASSGENERATOR_DIR . $file_to_save . '.class.php';
@@ -265,23 +227,18 @@ class ClassGenerator
         fwrite($fp, $text_to_save);
         fclose($fp);
     }
-
     private function getTables()
     {
         $result = Database::select('SHOW FULL TABLES');
         $tables = array();
-
         foreach ($result as $key => $table) {
             $tables[$table['Tables_in_' . dbdatabase]] = $table['Table_type'];
         }
-
         return $tables;
     }
-
     public function getException()
     {
         return $this->exception;
     }
 }
-
 ?>
