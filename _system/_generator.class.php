@@ -15,124 +15,29 @@ class ClassGenerator
     private $str_replace_file = array();
     private $str_replace_column = array(' ', '-');
     private $skip_table = array();
-    public function ClassGenerator()
-    {
+    private $columnsInfo;
+    private $columns;
+    private $foreignKeys;   
+    public function ClassGenerator(){
         $this->generateClasses($this->getTables());
     }
     private function generateClasses($tables)
     {
         foreach ($tables as $table => $table_type) {
             if (!in_array($table, $this->skip_table)) {
-                $class = str_replace($this->str_replace, '', $table);
-                $class = preg_replace('/[0-9]+/', '', $class);
-                if ($table == 'produit') {
-                    $this->str_replace_column = array(' ', '-');
-                } else {
-                    $this->str_replace_column = array(' ', 'fld_', '-');
-                }
-                $content = '<?php' . NL . NL;
-                $content .= '/**' . NL;
-                $content .= ' * ' . str_replace($this->str_replace_file, '', $table) . '.class.php' . NL;
-                $content .= ' * ' . $this->getTableComment($table) . NL;
-                $content .= ' **/' . NL;
-                /***********************************************************************
-                 * CLASS
-                 ************************************************************************/
-                $type = ($table_type == 'BASE TABLE') ? 'QMModel' : 'View';
                 $prefix = ($table_type == 'BASE TABLE') ? '' : 'V_';
-                $content .= 'class ' . StringHelper::singularize($class) . ' extends ' . $type . ' {' . NL . NL;
-                /***********************************************************************
-                 * VARIABLES
-                 ************************************************************************/
-                $list_columns = array();
-                $columns = $this->getColumns($table);
-                $columns_info = $this->getColumnsInfo($table);
-                $foreignKeys = $this->getForeignKeys($table);
-                $foreignKeyTable = $this->getForeignKeyTable($table);
-                $pKeys = $this->getPrimaryKeys($table);
-                //$content .= TAB . 'public static $DATABASE_NAME = \'' . dbdatabase . '\';' . NL;
-                $content .= TAB . 'const TABLE = \'' . $table . '\';' . NL;
-                $and = '';
-                $primary_key = '';
-                foreach ($pKeys as $key => $pKey) {
-                    $str_column = str_replace($this->str_replace_column, '', $pKey);
-                    $primary_key .= $and . '\'' . $str_column . '\'=>' . '\'' . $pKey . '\'';
-                    $and = ',';
-                }
-                $content .= TAB . 'public static $PRIMARY_KEY = [' . $primary_key . '];' . NL;
-                $and = '';
-                $columns_name = '';
-                //$columns_modified = '';
-                foreach ($columns as $key => $value) {
-                    $str_column = str_replace($this->str_replace_column, '', $value);
-                    $columns_name .= $and . '\'' . $str_column . '\'=>' . '\'' . $value . '\'';
-                    //$columns_modified .= $and.'\''.$value.'\'=>0';
-                    $and = ',';
-                }
-                $content .= TAB . 'public static $FIELD_NAME = [' . $columns_name . '];' . NL;
-                //$content .= TAB . 'protected $FIELD_MODIFIED = array();' . NL;
-                //$content .= TAB . 'protected $RESULT = array();' . NL;
-                $content .= TAB . 'protected static $FOREIGN_KEYS = [';
-                if (!empty($foreignKeyTable)) {
-                    $and = '';
-                    foreach ($columns as $column) {
-                        if (!empty($foreignKeyTable[$column])) {
-                            $content .= $and . '\'' . $column . '\'=>array(\'TABLE_NAME\'=>\'' . $foreignKeyTable[$column]['TABLE_NAME'] . '\', \'COLUMN_NAME\'=>\'' . $foreignKeyTable[$column]['COLUMN_NAME'] . '\', \'DATABASE_NAME\'=>\'' . $foreignKeyTable[$column]['DATABASE_NAME'] . '\']';
-                            $and = ',';
-                        }
-                    }
-                }
-                $content .= ');';
-                $content .= NL . NL . NL;
-                foreach ($columns as $column) {
-                    if (!empty($columns_info[$column]['Comment'])) {
-                        $content .= TAB . '/**' . NL;
-                        $content .= TAB . ' * @var ' . utf8_encode($columns_info[$column]['Comment']) . NL;
-                        $content .= TAB . ' */' . NL;
-                    }
-                    $str_column = str_replace($this->str_replace_column, '', $column);
-                    $content .= TAB . 'protected $' . $str_column . ' = null;' . NL;
-                    if (!empty($foreignKeys[$column])) {
-                        $content .= TAB . 'protected $FK_' . $foreignKeys[$column] . str_replace($this->str_replace, '', $column) . ';' . NL;
-                    }
-                    $list_columns[] = $column;
-                }
+                $content = $this->addHeader($table, $table_type);
+                $this->setColumns($table);
+                $this->setColumnsInfo($table);
+                $this->setForeignKeys($table);
+                $content = $this->addVariables($table, $content);
                 //$content .= TAB.'public function __construct($array = array()) {'.NL;
                 //$content .= TAB.TAB.'if (!empty($array)) { $this = '.$class.'::readArray($array); }'.NL;
                 //$content .= TAB.'}'.NL.NL;
-                /***********************************************************************
-                 * SETTERS
-                 ************************************************************************/
-                foreach ($columns as $column) {
-                    $str_column = str_replace($this->str_replace_column, '', $column);
-                    $content .= TAB . 'public function set_' . $str_column . '($pArg=\'0\') {' . NL;
-                    $content .= TAB . TAB . 'IF ( $this->' . $str_column . ' !== $pArg){' . NL;
-                    $content .= TAB . TAB . TAB . '$this->' . $str_column . '=$pArg; $this->FIELD_MODIFIED[\'' . $str_column . '\']=1;' . NL;
-                    $content .= TAB . TAB . '}' . NL;
-                    $content .= TAB . '}' . NL;
-                    if (!empty($foreignKeys[$column])) {
-                        $content .= TAB . 'protected function set_FK_' . $foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '($pArg=\'0\') {$this->FK_' . $foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '=$pArg; }' . NL;
-                    }
-                }
+                $content = $this->addSetterFunctions($content);
                 $content .= NL;
-                /***********************************************************************
-                 * GETTERS
-                 ************************************************************************/
-                foreach ($columns as $column) {
-                    $str_column = str_replace($this->str_replace_column, '', $column);
-                    $content .= TAB . 'public function get_' . $str_column . '() { return (' . $this->mapMysqlTypeWithPhpType($columns_info[$column]['Type']) . ') $this->' . $str_column . '; }' . NL;
-                    if (!empty($foreignKeys[$column])) {
-                        $content .= TAB . 'public function get_FK_' . $foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '($force_get=TRUE) { ';
-                        $content .= 'if ($this->FK_' . $foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '!== null || $force_get === FALSE) { return $this->FK_' . $foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '; } else {';
-                        $content .= '$this->FK_' . $foreignKeys[$column] . str_replace($this->str_replace, '', $column) . ' = new ' . $foreignKeys[$column] . '();';
-                        $content .= '$this->FK_' . $foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '->load(array(self::$FOREIGN_KEYS[\'' . $column . '\'][\'COLUMN_NAME\'] => $this->' . $column . '));';
-                        $content .= 'return $this->FK_' . $foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '; } }' . NL;
-                    }
-                }
-                $content .= NL;
-                $content .= '}' . NL;
-                // Write file
-                $this->createClassFile($prefix . str_replace($this->str_replace_file, '', $table), $content);
+                $content = $this->addGetterFunctions($content);
+                $this->createClassFile($prefix . str_replace($this->str_replace_file, '', $table), $content);  // Write file
             }
         }
     }
@@ -147,41 +52,44 @@ class ClassGenerator
         }
         return '';
     }
-    private function getColumns($table)
+    private function setColumns($table)
     {
         $result = Database::select('SHOW COLUMNS FROM `' . $table . '`');
-        $columns = array();
+        $this->columns = [];
         foreach ($result as $key => $column)
-            $columns[$key] = $column['Field'];
-        return $columns;
+            $this->columns[$key] = $column['Field'];
+        return $this->columns;
     }
-    private function getColumnsInfo($table)
-    {
+    private function setColumnsInfo($table){
         $result = Database::select('SHOW FULL COLUMNS FROM `' . $table . '`');
-        $columns = array();
+        $columns = [];
         foreach ($result as $key => $column) {
             $columns[$column['Field']]['Comment'] = $column['Comment'];
             $columns[$column['Field']]['Type'] = $column['Type'];
         }
-        return $columns;
+        return $this->columnsInfo = $columns;
     }
-    private function getForeignKeys($table)
+    private function setForeignKeys($table)
     {
         $result = Database::select('SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_SCHEMA, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_NAME IS NOT NULL AND TABLE_NAME = :table', [':table' => $table]);
-        $columns = array();
+        $this->foreignKeys = [];
         foreach ($result as $key => $column) {
             if ($column['REFERENCED_TABLE_SCHEMA'] == dbdatabase)
-                $columns[$column['COLUMN_NAME']] = str_replace($this->str_replace, '', $column['REFERENCED_TABLE_NAME']);
+                $this->columns[$column['COLUMN_NAME']] = str_replace($this->str_replace, '', $column['REFERENCED_TABLE_NAME']);
         }
-        return $columns;
+        return $this->foreignKeys;
     }
-    private function getForeignKeyTable($table)
-    {
+
+    /**
+     * @param $table
+     * @return array
+     */
+    private function getForeignKeyTable($table){
         $result = Database::select('SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_SCHEMA, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_NAME IS NOT NULL AND TABLE_NAME = :table', [':table' => $table]);
-        $columns = array();
+        $columns = [];
         foreach ($result as $key => $column) {
             if ($column['REFERENCED_TABLE_SCHEMA'] == dbdatabase) {
-                //$columns[$column['COLUMN_NAME']] = $column['REFERENCED_TABLE_SCHEMA'].'.'.$column['REFERENCED_TABLE_NAME'].'.'.$column['REFERENCED_COLUMN_NAME'];
+                //$this->columns[$column['COLUMN_NAME']] = $column['REFERENCED_TABLE_SCHEMA'].'.'.$column['REFERENCED_TABLE_NAME'].'.'.$column['REFERENCED_COLUMN_NAME'];
                 $columns[$column['COLUMN_NAME']]['TABLE_NAME'] = $column['REFERENCED_TABLE_NAME'];
                 $columns[$column['COLUMN_NAME']]['COLUMN_NAME'] = $column['REFERENCED_COLUMN_NAME'];
                 $columns[$column['COLUMN_NAME']]['DATABASE_NAME'] = $column['REFERENCED_TABLE_SCHEMA'];
@@ -240,5 +148,161 @@ class ClassGenerator
     {
         return $this->exception;
     }
+    /**
+     * @param $content
+     * @return string
+     */
+    private function addSetterFunctions($content): string 
+    {
+        /***********************************************************************
+         * SETTERS
+         ************************************************************************/
+        foreach ($this->columns as $column) {
+            $str_column = str_replace($this->str_replace_column, '', $column);
+            $type = $this->mapMysqlTypeWithPhpType($this->columnsInfo[$column]['Type']);
+            $functionName = 'set_' . $str_column;
+            $functionName = StringHelper::camelize($functionName);
+            $camel = StringHelper::camelize($str_column);
+            $content .= TAB . '/**'. NL;
+            $content .= TAB . "* @param $type $camel". NL;
+            $content .= TAB . "* @return $type". NL;
+            $content .= TAB . '*/'. NL;
+            $content .= TAB . 'public function ' . $functionName . '(' . $type . ' $' . $camel . ') {' . NL;
+            $content .= TAB . TAB . '$originalValue = $this->'.$camel.';'. NL;
+            $content .= TAB . TAB . 'if ($originalValue !== $' . $camel . '){' . NL;
+            $content .= TAB . TAB . TAB . '$this->modifiedFields[\'' . $str_column . '\'] = 1;' . NL;
+            $content .= TAB . TAB . '}' . NL;
+            $content .= TAB . TAB . 'return $this->' . $camel . ' = $' . $camel . ';' . NL;
+            $content .= TAB . '}' . NL;
+            if (!empty($this->foreignKeys[$column])) {
+                $content .= TAB . 'protected function set_FK_' . $this->foreignKeys[$column] . str_replace($this->str_replace, '', $column) .
+                    '($pArg=\'0\') {$this->FK_' . $this->foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '=$pArg; }' . NL;
+            }
+        }
+        return $content;
+    }
+    /**
+     * @param $table
+     * @param $content
+     * @return string
+     */
+    private function addVariables($table, $content): string
+    {
+        /***********************************************************************
+         * VARIABLES
+         ************************************************************************/
+        $list_columns = [];
+        $foreignKeyTable = $this->getForeignKeyTable($table);
+        $pKeys = $this->getPrimaryKeys($table);
+        //$content .= TAB . 'public static $DATABASE_NAME = \'' . dbdatabase . '\';' . NL;
+        $content .= TAB . 'const TABLE = \'' . $table . '\';' . NL;
+        $and = '';
+        $primary_key = '';
+        foreach ($pKeys as $key => $pKey) {
+            $str_column = str_replace($this->str_replace_column, '', $pKey);
+            $primary_key .= $and . '\'' . $str_column . '\'=>' . '\'' . $pKey . '\'';
+            $and = ',';
+        }
+        $content .= TAB . 'public static $PRIMARY_KEY = [' . $primary_key . '];' . NL;
+        $and = '';
+        $columns_name = '';
+        //$this->columns_modified = '';
+        foreach ($this->columns as $key => $value) {
+            $content .= TAB . "const FIELD_$value = '$value'" . NL;
+            $str_column = str_replace($this->str_replace_column, '', $value);
+            $columns_name .= $and . '\'' . $str_column . '\'=>' . '\'' . $value . '\'';
+            //$this->columns_modified .= $and.'\''.$value.'\'=>0';
+            $and = ',';
+        }
+        $content .= TAB . 'public static $FIELD_NAME = [' . $columns_name . '];' . NL;
+        //$content .= TAB . 'protected $FIELD_MODIFIED = array();' . NL;
+        //$content .= TAB . 'protected $RESULT = array();' . NL;
+        $content .= TAB . 'protected static $FOREIGN_KEYS = [';
+        if (!empty($foreignKeyTable)) {
+            $and = '';
+            foreach ($this->columns as $column) {
+                if (!empty($foreignKeyTable[$column])) {
+                    $content .= $and . '\'' . $column . '\'=>array(\'TABLE_NAME\'=>\'' . $foreignKeyTable[$column]['TABLE_NAME'] . '\', \'COLUMN_NAME\'=>\'' . $foreignKeyTable[$column]['COLUMN_NAME'] . '\', \'DATABASE_NAME\'=>\'' . $foreignKeyTable[$column]['DATABASE_NAME'] . '\']';
+                    $and = ',';
+                }
+            }
+        }
+        $content .= '];'. NL ;
+        foreach ($this->columns as $column) {
+            if (!empty($this->columnsInfo[$column]['Comment'])) {
+                $content .= TAB . '/**' . NL;
+                $content .= TAB . ' * @var ' . utf8_encode($this->columnsInfo[$column]['Comment']) . NL;
+                $content .= TAB . ' */' . NL;
+            }
+            $str_column = str_replace($this->str_replace_column, '', $column);
+            $camel = StringHelper::camelize($str_column);
+            $content .= TAB . 'public $' . $camel . ';' . NL;
+            if (!empty($this->foreignKeys[$column])) {
+                $content .= TAB . 'protected $FK_' . $this->foreignKeys[$column] . str_replace($this->str_replace, '', $column) . ';' . NL;
+            }
+            $list_columns[] = $column;
+        }
+        return $content;
+    }
+    /**
+     * @param $content
+     * @return string
+     */
+    private function addGetterFunctions(string $content): string
+    {
+        /***********************************************************************
+         * GETTERS
+         ************************************************************************/
+        foreach ($this->columns as $column) {
+            $str_column = str_replace($this->str_replace_column, '', $column);
+            $functionName = 'get_' . $str_column;
+            $type = $this->mapMysqlTypeWithPhpType($this->columnsInfo[$column]['Type']);
+            $camel = StringHelper::camelize($str_column);
+            $functionName = StringHelper::camelize($functionName);
+            $content .= TAB . '/**'. NL;
+            $content .= TAB . "* @return $type". NL;
+            $content .= TAB . '*/'. NL;
+            $content .= TAB . 'public function ' . $functionName . '(): ' . $type . ' {' . NL;
+            $content .= TAB . TAB . '$'. $camel.' = $this->'.$camel.';'. NL;
+            $content .= TAB . TAB . 'return (' . $type . ') $' . $camel .';' . NL;
+            $content .= TAB . '}' . NL;
+            if (!empty($this->foreignKeys[$column])) {
+                $content .= TAB . 'public function get_FK_' . $this->foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '($force_get=TRUE) { ';
+                $content .= 'if ($this->FK_' . $this->foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '!== null || $force_get === FALSE) { return $this->FK_' . $this->foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '; } else {';
+                $content .= '$this->FK_' . $this->foreignKeys[$column] . str_replace($this->str_replace, '', $column) . ' = new ' . $this->foreignKeys[$column] . '();';
+                $content .= '$this->FK_' . $this->foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '->load(array(self::$FOREIGN_KEYS[\'' . $column . '\'][\'COLUMN_NAME\'] => $this->' . $column . '));';
+                $content .= 'return $this->FK_' . $this->foreignKeys[$column] . str_replace($this->str_replace, '', $column) . '; } }' . NL;
+            }
+        }
+        $content .= NL;
+        $content .= '}' . NL;
+        return $content;
+    }
+    /**
+     * @param $table
+     * @param $table_type
+     * @return string
+     */
+    private function addHeader($table, $table_type): string
+    {
+        $class = str_replace($this->str_replace, '', $table);
+        $class = preg_replace('/[0-9]+/', '', $class);
+        $class = StringHelper::singularize($class);
+        $class = ucfirst($class);
+        $this->str_replace_column = $table == 'produit' ? [' ', '-'] : array(' ', 'fld_', '-');
+        $content = '<?php' . NL ;
+        $comment = $this->getTableComment($table);
+        if(!empty($comment)){
+            $content .= '/**' . NL;
+            //$content .= ' * ' . str_replace($this->str_replace_file, '', $table) . '.class.php' . NL;
+            if(!empty($comment)){$content .= ' * ' . $this->getTableComment($table) . NL;}
+            $content .= ' **/' . NL;
+        }
+        /***********************************************************************
+         * CLASS
+         ************************************************************************/
+        $type = ($table_type == 'BASE TABLE') ? 'QMModel' : 'View';
+        $content .= 'class ' . $class . ' extends ' . $type . ' {' . NL;
+        return $content;
+    }
 }
-?>
