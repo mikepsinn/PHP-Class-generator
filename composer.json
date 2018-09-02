@@ -1,0 +1,7 @@
+{
+    "name": "vagrant/php-class-generator",
+    "type": "library",
+    "require": {
+        "vlucas/phpdotenv": "^2.5"
+    }
+}

@@ -4,6 +4,8 @@
  * ClassGenerator.class.php
  **********************************************************************/
 
+use Quantimodo\Api\Model\StringHelper;
+
 define('PERMISSION_EXCEPTION', 'Permission error : No permission to write on ' . CLASSGENERATOR_DIR . '.');
 define('SERVER_EXCEPTION', 'Host error : Enter a valid host.');
 define('BASE_EXCEPTION', 'Database error : Enter a valid database.');
@@ -44,9 +46,9 @@ class ClassGenerator
                 /***********************************************************************
                  * CLASS
                  ************************************************************************/
-                $type = ($table_type == 'BASE TABLE') ? 'Table' : 'View';
-                $prefixe = ($table_type == 'BASE TABLE') ? '' : 'V_';
-                $content .= 'class ' . $class . ' extends ' . $type . ' {' . NL . NL;
+                $type = ($table_type == 'BASE TABLE') ? 'QMModel' : 'View';
+                $prefix = ($table_type == 'BASE TABLE') ? '' : 'V_';
+                $content .= 'class ' . StringHelper::singularize($class) . ' extends ' . $type . ' {' . NL . NL;
 
 
                 /***********************************************************************
@@ -58,8 +60,8 @@ class ClassGenerator
                 $foreignKeys = $this->getForeignKeys($table);
                 $foreignKeyTable = $this->getForeignKeyTable($table);
                 $pKeys = $this->getPrimaryKeys($table);
-                $content .= TAB . 'public static $DATABASE_NAME = \'' . dbdatabase . '\';' . NL;
-                $content .= TAB . 'public static $TABLE_NAME = \'' . $table . '\';' . NL;
+                //$content .= TAB . 'public static $DATABASE_NAME = \'' . dbdatabase . '\';' . NL;
+                $content .= TAB . 'const TABLE = \'' . $table . '\';' . NL;
                 $and = '';
                 $primary_key = '';
                 foreach ($pKeys as $key => $pKey) {
@@ -67,7 +69,7 @@ class ClassGenerator
                     $primary_key .= $and . '\'' . $str_column . '\'=>' . '\'' . $pKey . '\'';
                     $and = ',';
                 }
-                $content .= TAB . 'public static $PRIMARY_KEY = array(' . $primary_key . ');' . NL;
+                $content .= TAB . 'public static $PRIMARY_KEY = [' . $primary_key . '];' . NL;
                 $and = '';
                 $columns_name = '';
                 //$columns_modified = '';
@@ -77,16 +79,16 @@ class ClassGenerator
                     //$columns_modified .= $and.'\''.$value.'\'=>0';
                     $and = ',';
                 }
-                $content .= TAB . 'public static $FIELD_NAME = array(' . $columns_name . ');' . NL;
-                $content .= TAB . 'protected $FIELD_MODIFIED = array();' . NL;
-                $content .= TAB . 'protected $RESULT = array();' . NL;
-                $content .= TAB . 'protected static $FOREIGN_KEYS = array(';
+                $content .= TAB . 'public static $FIELD_NAME = [' . $columns_name . '];' . NL;
+                //$content .= TAB . 'protected $FIELD_MODIFIED = array();' . NL;
+                //$content .= TAB . 'protected $RESULT = array();' . NL;
+                $content .= TAB . 'protected static $FOREIGN_KEYS = [';
                 if (!empty($foreignKeyTable)) {
 
                     $and = '';
                     foreach ($columns as $column) {
                         if (!empty($foreignKeyTable[$column])) {
-                            $content .= $and . '\'' . $column . '\'=>array(\'TABLE_NAME\'=>\'' . $foreignKeyTable[$column]['TABLE_NAME'] . '\', \'COLUMN_NAME\'=>\'' . $foreignKeyTable[$column]['COLUMN_NAME'] . '\', \'DATABASE_NAME\'=>\'' . $foreignKeyTable[$column]['DATABASE_NAME'] . '\')';
+                            $content .= $and . '\'' . $column . '\'=>array(\'TABLE_NAME\'=>\'' . $foreignKeyTable[$column]['TABLE_NAME'] . '\', \'COLUMN_NAME\'=>\'' . $foreignKeyTable[$column]['COLUMN_NAME'] . '\', \'DATABASE_NAME\'=>\'' . $foreignKeyTable[$column]['DATABASE_NAME'] . '\']';
                             $and = ',';
                         }
                     }
@@ -149,7 +151,7 @@ class ClassGenerator
                 $content .= '}' . NL;
 
                 // Write file
-                $this->createClassFile($prefixe . str_replace($this->str_replace_file, '', $table), $content);
+                $this->createClassFile($prefix . str_replace($this->str_replace_file, '', $table), $content);
             }
         }
     }
