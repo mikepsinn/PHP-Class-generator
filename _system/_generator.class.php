@@ -22,8 +22,11 @@ class ClassGenerator
     private $columnsInfo;
     private $columns;
     private $foreignKeys;
+    private $swaggerJson;
     public function ClassGenerator(){
+        $this->swaggerJson = SwaggerJson::get();
         $this->generateClasses($this->getTables());
+        SwaggerJson::updateSwaggerJsonFile($this->getSwaggerJson());
     }
     /**
      * @param string $tableName
@@ -35,12 +38,16 @@ class ClassGenerator
         $className = StringHelper::singularize($className);
         $className = StringHelper::camelize($className);
         $className = ucfirst($className);
+        $className = str_replace('WpBp', '', $className);
+        $className = str_replace('Metum', 'Meta', $className);
+        $className = str_replace('etum', 'meta', $className);
         return $className;
     }
     private function generateClasses($tables)
     {
         foreach ($tables as $tableName => $table_type) {
             if (!in_array($tableName, $this->skip_table)) {
+                if(stripos($tableName, '_bp_') === false){continue;}
                 $this->setColumns($tableName);
                 $this->setColumnsInfo($tableName);
                 $this->setForeignKeys($tableName);
@@ -381,18 +388,19 @@ class '.$testClassName.' extends QMTestCase
                 $content .= TAB . 'protected $FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) . ';' . NL;
             }
             $swaggerDefinition->required[] = $camel;
+            $swaggerProperty->unsetNullFields();
             $swaggerDefinition->properties->$camel = $swaggerProperty;
             $list_columns[] = $columnName;
         }
         $className = $this->getClassName($tableName);
-        $swaggerJson = SwaggerJson::get();
+        $swaggerJson = $this->getSwaggerJson();
         $swaggerJson->definitions->$className = $swaggerDefinition;
         $responseName = $className.'sResponse';
         $swaggerJson->definitions->$responseName = new SwaggerResponseDefinition($className);
-        $pathName = '/v3/'.StringHelper::camelize($className).'s';
+        $pathName = '/v3/'.StringHelper::camelize($className);
+        if(!isset($swaggerJson->paths->$pathName)){$swaggerJson->paths->$pathName = new stdClass();}
         $swaggerJson->paths->$pathName->get = new SwaggerPathMethod("get", $className);
         $swaggerJson->paths->$pathName->post = new SwaggerPathMethod("post", $className);
-        SwaggerJson::updateSwaggerJsonFile($swaggerJson);
         return $content;
     }
     /**
@@ -472,5 +480,11 @@ class '.$testClassName.' extends QMTestCase
             }
             return "QMModel";
         }
+    }
+    /**
+     * @return SwaggerJson
+     */
+    public function getSwaggerJson(){
+        return $this->swaggerJson;
     }
 }
