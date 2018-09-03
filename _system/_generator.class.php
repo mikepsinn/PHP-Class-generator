@@ -23,7 +23,7 @@ class ClassGenerator
     private $columns;
     private $foreignKeys;
     private $swaggerJson;
-    public function ClassGenerator(){
+    public function __construct(){
         $this->swaggerJson = SwaggerJson::get();
         $this->generateClasses($this->getTables());
         SwaggerJson::updateSwaggerJsonFile($this->getSwaggerJson());
