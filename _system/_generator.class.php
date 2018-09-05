@@ -25,10 +25,12 @@ class ClassGenerator
     private $foreignKeys;
     private $swaggerJson;
     private $tableName;
+    private $routeContent ='';
     public function __construct(){
         $this->swaggerJson = SwaggerJson::get();
         $this->generateClasses($this->getTables());
         SwaggerJson::updateSwaggerJsonFile($this->getSwaggerJson());
+        $this->createRoutesFile();
     }
     /**
      * @return string
@@ -167,13 +169,18 @@ class ClassGenerator
         fwrite($fp, $content);
         return fclose($fp);
     }
+    private function createRoutesFile(){
+        $directory = '/vagrant';
+        $this->writeToFile($directory, 'routes', $this->routeContent);
+    }
     private function createControllerFile($className, $method){
         $directory = '/vagrant/slim/Api/Controllers/'.$className;
+        $controllerName = $this->getControllerName($method);
         $this->writeToFile($directory, ucfirst($method) .$className . 'Controller.php',
             '<?php
 namespace Quantimodo\Api\Controller\\'.$className.';
 use Quantimodo\Api\Controller\\'.ucfirst($method).'Controller;
-class '.ucfirst($method).$className.'Controller extends '. ucfirst($method).'Controller
+class '.$controllerName.' extends '. ucfirst($method).'Controller
 {
     public function '. $method.'(){
         $this->getApp()->setCacheControlHeader(60);
@@ -455,11 +462,28 @@ class '.$testClassName.' extends QMTestCase
         $swaggerJson->definitions->$className = $swaggerDefinition;
         $responseName = $this->getPluralTitleCaseClassName().'Response';
         $swaggerJson->definitions->$responseName = new SwaggerResponseDefinition($className);
-        $pathName = '/v3/'.Pluralizer::plural(StringHelper::camelize($className));
+        $pluralCamel = Pluralizer::plural(StringHelper::camelize($className));
+        $pathName = '/v3/'.$pluralCamel;
+        $this->addRoutes($pluralCamel);
         if(!isset($swaggerJson->paths->$pathName)){$swaggerJson->paths->$pathName = new stdClass();}
         $swaggerJson->paths->$pathName->get = new SwaggerPathMethod("get", $className);
         $swaggerJson->paths->$pathName->post = new SwaggerPathMethod("post", $className);
         return $content;
+    }
+    private function addRoutes(){
+        $this->routeContent .= TAB . TAB . '['. PHP_EOL;
+        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_METHOD => HttpRequest::METHOD_GET,'. PHP_EOL;
+        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_PATH => \'/v1/'.$this->getPluralCamelCaseClassName().'\','. PHP_EOL;
+        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_AUTH => false,'. PHP_EOL;
+        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_AUTH_SCOPE => \'\','. PHP_EOL;
+        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_CONTROLLER => \''.$this->getClassName().'\\\\'.$this->getControllerName('get').'\''. PHP_EOL;
+        $this->routeContent .= TAB . TAB . '],'. PHP_EOL;
+        $this->routeContent .= TAB . TAB . '['. PHP_EOL;
+        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_PATH => \'/v1/'.$this->getPluralCamelCaseClassName().'\','. PHP_EOL;
+        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_AUTH => false,'. PHP_EOL;
+        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_AUTH_SCOPE => \'\','. PHP_EOL;
+        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_CONTROLLER => \''.$this->getClassName().'\\\\'.$this->getControllerName('post').'\''. PHP_EOL;
+        $this->routeContent .= TAB . TAB . '],'. PHP_EOL;
     }
     /**
      * @param $content
@@ -544,5 +568,12 @@ class '.$testClassName.' extends QMTestCase
      */
     public function getSwaggerJson(){
         return $this->swaggerJson;
+    }
+    /**
+     * @param string $method
+     * @return string
+     */
+    private function getControllerName(string $method){
+        return ucfirst($method).$this->getClassName().'Controller';
     }
 }
