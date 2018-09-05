@@ -234,7 +234,7 @@ class '.$responseClassName.' extends QMResponseBody {
         $directory = '/vagrant/slim/tests/Api/Controllers';
         $testClassName = $className . 'ControllerTest';
         $filePath = $testClassName . '.php';
-        $this->writeToFile($directory, $filePath, '<?php
+        $content = '<?php
 namespace QuantimodoTest\Api\Controllers;
 use QuantimodoTest\Api\QMTestCase;
 /**
@@ -260,14 +260,26 @@ class '.$testClassName.' extends QMTestCase
         if(!$implemented){
             $this->markTestSkipped("Test not yet implemented");
             return;
-        }
-        $this->setAuthenticatedUser(1);
-        $body = $this->postAndGetDecodedBody(\'v1/'.StringHelper::camelize($className).'\', []);
-        $this->assertCount(1, $body->'.StringHelper::camelize($className).');
-        $body = $this->getAndDecodeBody(\'v1/'.StringHelper::camelize($className).'\');
-        $this->assertCount(1, $body->'.StringHelper::camelize($className).');
-    }
-}');
+        }' . PHP_EOL;
+        $content .= TAB . TAB . '$this->setAuthenticatedUser(1);' . PHP_EOL;
+        $content .= TAB . TAB . '$postData = $this->getPostData();' . PHP_EOL;
+        $content .= TAB . TAB . '$body = $this->postAndGetDecodedBody(\'v1/'.StringHelper::camelize($className).'\', $postData);' . PHP_EOL;
+        $content .= TAB . TAB . '$this->assertCount(1, $body->'.$this->getPluralCamelCaseClassName().');' . PHP_EOL;
+        $content .= TAB . TAB . '$body = $this->getAndDecodeBody(\'v1/'.StringHelper::camelize($className).'\');' . PHP_EOL;
+        $content .= TAB . TAB . '$this->assertCount(1, $body->'.$this->getPluralCamelCaseClassName().');'. PHP_EOL;
+        $content .= TAB . TAB . '$this->assertEquals($postData, $body->'.$this->getPluralCamelCaseClassName().'[0]);'. PHP_EOL;
+        $content .= TAB . '}' . PHP_EOL;
+        $content .= TAB . '/**'. PHP_EOL;
+        $content .= TAB . "* @return mixed". PHP_EOL;
+        $content .= TAB . '*/'. PHP_EOL;
+        $content .= TAB . 'public function getPostData() {' . PHP_EOL;
+        $content .= TAB . TAB . '$data = \''. PHP_EOL;
+        $content .= TAB . TAB . '' . PHP_EOL;
+        $content .= TAB . TAB . '\';' . PHP_EOL;
+        $content .= TAB . TAB . 'return json_decode($data);' . PHP_EOL;
+        $content .= TAB . '}' . PHP_EOL;
+        $content .= '}' . PHP_EOL;
+        $this->writeToFile($directory, $filePath, $content);
     }
     private function createModelTestFile($className){
         $directory = '/vagrant/slim/tests/Api/Model';
