@@ -435,10 +435,11 @@ class '.$testClassName.' extends QMTestCase
         $metaProperty = new SwaggerDefinitionProperty();
         $className = $this->getClassName();
         $metaProperty->setDescription("Additional ".strtolower($className)." key-value data");
-        $metaProperty->setArrayItems("MetaDatum");
+        $metaProperty->setArrayItemsType("object");
         $metaProperty->unsetNullFields();
         $swaggerDefinition->properties->{'metaDataArray'} = $metaProperty;
         $swaggerJson = $this->getSwaggerJson();
+        $swaggerDefinition->unsetNullFields();
         $swaggerJson->definitions->$className = $swaggerDefinition;
         $responseName = $this->getPluralTitleCaseClassName().'Response';
         $swaggerJson->definitions->$responseName = new SwaggerResponseDefinition($className);
