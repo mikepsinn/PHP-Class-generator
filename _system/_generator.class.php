@@ -55,11 +55,11 @@ class ClassGenerator
                 $this->setForeignKeys($tableName);
                 $content = $this->addHeader($tableName, $table_type);
                 $content = $this->addVariables($tableName, $content);
-                //$content .= TAB.'public function __construct($array = array()) {'.NL;
-                //$content .= TAB.TAB.'if (!empty($array)) { $this = '.$class.'::readArray($array); }'.NL;
-                //$content .= TAB.'}'.NL.NL;
+                //$content .= TAB.'public function __construct($array = array()) {'.PHP_EOL;
+                //$content .= TAB.TAB.'if (!empty($array)) { $this = '.$class.'::readArray($array); }'.PHP_EOL;
+                //$content .= TAB.'}'.PHP_EOL.PHP_EOL;
                 $content = $this->addSetterFunctions($content);
-                $content .= NL;
+                $content .= PHP_EOL;
                 $content = $this->addGetterFunctions($content);
                 $filePath = $this->getFilePath($tableName, '/');
                 $className = $this->getClassName();
@@ -340,20 +340,20 @@ class '.$testClassName.' extends QMTestCase
             $functionName = 'set_' . $str_column;
             $functionName = StringHelper::camelize($functionName);
             $camel = StringHelper::camelize($str_column);
-            $content .= TAB . '/**'. NL;
-            $content .= TAB . "* @param $type $camel". NL;
-            $content .= TAB . "* @return $type". NL;
-            $content .= TAB . '*/'. NL;
-            $content .= TAB . 'public function ' . $functionName . '(' . $type . ' $' . $camel . ') {' . NL;
-            $content .= TAB . TAB . '$originalValue = $this->'.$camel.';'. NL;
-            $content .= TAB . TAB . 'if ($originalValue !== $' . $camel . '){' . NL;
-            $content .= TAB . TAB . TAB . '$this->modifiedFields[\'' . $str_column . '\'] = 1;' . NL;
-            $content .= TAB . TAB . '}' . NL;
-            $content .= TAB . TAB . 'return $this->' . $camel . ' = $' . $camel . ';' . NL;
-            $content .= TAB . '}' . NL;
+            $content .= TAB . '/**'. PHP_EOL;
+            $content .= TAB . "* @param $type $camel". PHP_EOL;
+            $content .= TAB . "* @return $type". PHP_EOL;
+            $content .= TAB . '*/'. PHP_EOL;
+            $content .= TAB . 'public function ' . $functionName . '(' . $type . ' $' . $camel . ') {' . PHP_EOL;
+            $content .= TAB . TAB . '$originalValue = $this->'.$camel.';'. PHP_EOL;
+            $content .= TAB . TAB . 'if ($originalValue !== $' . $camel . '){' . PHP_EOL;
+            $content .= TAB . TAB . TAB . '$this->modifiedFields[\'' . $str_column . '\'] = 1;' . PHP_EOL;
+            $content .= TAB . TAB . '}' . PHP_EOL;
+            $content .= TAB . TAB . 'return $this->' . $camel . ' = $' . $camel . ';' . PHP_EOL;
+            $content .= TAB . '}' . PHP_EOL;
             if (!empty($this->foreignKeys[$columnName])) {
                 $content .= TAB . 'protected function set_FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) .
-                    '($pArg=\'0\') {$this->FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) . '=$pArg; }' . NL;
+                    '($pArg=\'0\') {$this->FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) . '=$pArg; }' . PHP_EOL;
             }
         }
         return $content;
@@ -371,8 +371,8 @@ class '.$testClassName.' extends QMTestCase
         $list_columns = [];
         $foreignKeyTable = $this->getForeignKeyTable($tableName);
         $pKeys = $this->getPrimaryKeys($tableName);
-        //$content .= TAB . 'public static $DATABASE_NAME = \'' . dbdatabase . '\';' . NL;
-        $content .= TAB . 'const TABLE = \'' . $tableName . '\';' . NL;
+        //$content .= TAB . 'public static $DATABASE_NAME = \'' . dbdatabase . '\';' . PHP_EOL;
+        $content .= TAB . 'const TABLE = \'' . $tableName . '\';' . PHP_EOL;
         $and = '';
         $primary_key = '';
         foreach ($pKeys as $key => $pKey) {
@@ -380,20 +380,20 @@ class '.$testClassName.' extends QMTestCase
             $primary_key .= $and . '\'' . $str_column . '\'=>' . '\'' . $pKey . '\'';
             $and = ',';
         }
-        $content .= TAB . 'public static $PRIMARY_KEY = [' . $primary_key . '];' . NL;
+        $content .= TAB . 'public static $PRIMARY_KEY = [' . $primary_key . '];' . PHP_EOL;
         $and = '';
         $columns_name = '';
         //$this->columns_modified = '';
         foreach ($this->columns as $key => $value) {
-            $content .= TAB . "const FIELD_$value = '$value';" . NL;
+            $content .= TAB . "const FIELD_$value = '$value';" . PHP_EOL;
             $str_column = str_replace($this->str_replace_column, '', $value);
             $columns_name .= $and . '\'' . $str_column . '\'=>' . '\'' . $value . '\'';
             //$this->columns_modified .= $and.'\''.$value.'\'=>0';
             $and = ',';
         }
-        $content .= TAB . 'public static $FIELD_NAME = [' . $columns_name . '];' . NL;
-        //$content .= TAB . 'protected $FIELD_MODIFIED = [];' . NL;
-        //$content .= TAB . 'protected $RESULT = [];' . NL;
+        $content .= TAB . 'public static $FIELD_NAME = [' . $columns_name . '];' . PHP_EOL;
+        //$content .= TAB . 'protected $FIELD_MODIFIED = [];' . PHP_EOL;
+        //$content .= TAB . 'protected $RESULT = [];' . PHP_EOL;
         $content .= TAB . 'protected static $FOREIGN_KEYS = [';
         if (!empty($foreignKeyTable)) {
             $and = '';
@@ -404,7 +404,7 @@ class '.$testClassName.' extends QMTestCase
                 }
             }
         }
-        $content .= '];'. NL ;
+        $content .= '];'. PHP_EOL ;
         $swaggerDefinition = new SwaggerDefinition(StringHelper::camelize($tableName));
         foreach ($this->columns as $columnName) {
             $str_column = str_replace($this->str_replace_column, '', $columnName);
@@ -415,14 +415,14 @@ class '.$testClassName.' extends QMTestCase
             $description = "What do you expect?";
             if (!empty($this->columnsInfo[$columnName]['Comment'])) {
                 $description = utf8_encode($this->columnsInfo[$columnName]['Comment']);
-                $content .= TAB . '/**' . NL;
-                $content .= TAB . ' * @var ' . $description . NL;
-                $content .= TAB . ' */' . NL;
+                $content .= TAB . '/**' . PHP_EOL;
+                $content .= TAB . ' * @var ' . $description . PHP_EOL;
+                $content .= TAB . ' */' . PHP_EOL;
             }
             $swaggerProperty->setDescription($description);
-            $content .= TAB . 'public $' . $camel . ';' . NL;
+            $content .= TAB . 'public $' . $camel . ';' . PHP_EOL;
             if (!empty($this->foreignKeys[$columnName])) {
-                $content .= TAB . 'protected $FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) . ';' . NL;
+                $content .= TAB . 'protected $FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) . ';' . PHP_EOL;
             }
             $swaggerDefinition->required[] = $camel;
             $swaggerProperty->unsetNullFields();
@@ -455,23 +455,23 @@ class '.$testClassName.' extends QMTestCase
             $type = $this->getPHPType($columnName);
             $camel = StringHelper::camelize($str_column);
             $functionName = StringHelper::camelize($functionName);
-            $content .= TAB . '/**'. NL;
-            $content .= TAB . "* @return $type". NL;
-            $content .= TAB . '*/'. NL;
-            $content .= TAB . 'public function ' . $functionName . '(): ' . $type . ' {' . NL;
-            $content .= TAB . TAB . '$'. $camel.' = $this->'.$camel.';'. NL;
-            $content .= TAB . TAB . 'return (' . $type . ') $' . $camel .';' . NL;
-            $content .= TAB . '}' . NL;
+            $content .= TAB . '/**'. PHP_EOL;
+            $content .= TAB . "* @return $type". PHP_EOL;
+            $content .= TAB . '*/'. PHP_EOL;
+            $content .= TAB . 'public function ' . $functionName . '(): ' . $type . ' {' . PHP_EOL;
+            $content .= TAB . TAB . '$'. $camel.' = $this->'.$camel.';'. PHP_EOL;
+            $content .= TAB . TAB . 'return (' . $type . ') $' . $camel .';' . PHP_EOL;
+            $content .= TAB . '}' . PHP_EOL;
             if (!empty($this->foreignKeys[$columnName])) {
                 $content .= TAB . 'public function get_FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) . '($force_get=TRUE) { ';
                 $content .= 'if ($this->FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) . '!== null || $force_get === FALSE) { return $this->FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) . '; } else {';
                 $content .= '$this->FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) . ' = new ' . $this->foreignKeys[$columnName] . '();';
                 $content .= '$this->FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) . '->load(array(self::$FOREIGN_KEYS[\'' . $columnName . '\'][\'COLUMN_NAME\'] => $this->' . $columnName . '));';
-                $content .= 'return $this->FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) . '; } }' . NL;
+                $content .= 'return $this->FK_' . $this->foreignKeys[$columnName] . str_replace($this->str_replace, '', $columnName) . '; } }' . PHP_EOL;
             }
         }
-        $content .= NL;
-        $content .= '}' . NL;
+        $content .= PHP_EOL;
+        $content .= '}' . PHP_EOL;
         return $content;
     }
     private function getFilePath(string $tableName, $delimiter):string {
@@ -493,21 +493,21 @@ class '.$testClassName.' extends QMTestCase
     private function addHeader($tableName, $table_type): string {
         $className = $this->getClassName();
         $this->str_replace_column = $tableName == 'produit' ? [' ', '-'] : array(' ', 'fld_', '-');
-        $content = '<?php' . NL ;
+        $content = '<?php' . PHP_EOL ;
         $nameSpace = 'namespace Quantimodo\\'.$this->getFilePath($tableName, '\\');
-        $content .= $nameSpace.';' . NL ;
+        $content .= $nameSpace.';' . PHP_EOL ;
         $comment = $this->getTableComment($tableName);
         if(!empty($comment)){
-            $content .= '/**' . NL;
-            //$content .= ' * ' . str_replace($this->str_replace_file, '', $table) . '.class.php' . NL;
-            if(!empty($comment)){$content .= ' * ' . $comment . NL;}
-            $content .= ' **/' . NL;
+            $content .= '/**' . PHP_EOL;
+            //$content .= ' * ' . str_replace($this->str_replace_file, '', $table) . '.class.php' . PHP_EOL;
+            if(!empty($comment)){$content .= ' * ' . $comment . PHP_EOL;}
+            $content .= ' **/' . PHP_EOL;
         }
         /***********************************************************************
          * CLASS
          ************************************************************************/
         $type = ($table_type == 'BASE TABLE') ? 'QMModel' : 'View';
-        $content .= 'class ' . $className . ' extends ' . $this->getBaseModelName() . ' {' . NL;
+        $content .= 'class ' . $className . ' extends ' . $this->getBaseModelName() . ' {' . PHP_EOL;
         return $content;
     }
     private function getBaseModelName():string{
