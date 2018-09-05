@@ -3,6 +3,7 @@ require_once(__DIR__ . '/../../../slim/vendor/autoload.php');
 /**********************************************************************
  * ClassGenerator.class.php
  **********************************************************************/
+use Illuminate\Support\Pluralizer;
 use Quantimodo\Api\Model\StringHelper;
 use Quantimodo\Api\Model\Swagger\SwaggerDefinition;
 use Quantimodo\Api\Model\Swagger\SwaggerDefinitionProperty;
@@ -23,16 +24,17 @@ class ClassGenerator
     private $columns;
     private $foreignKeys;
     private $swaggerJson;
+    private $tableName;
     public function __construct(){
         $this->swaggerJson = SwaggerJson::get();
         $this->generateClasses($this->getTables());
         SwaggerJson::updateSwaggerJsonFile($this->getSwaggerJson());
     }
     /**
-     * @param string $tableName
      * @return string
      */
-    private function getClassName(string $tableName):string {
+    private function getClassName():string {
+        $tableName = $this->getTableName();
         $className = str_replace($this->str_replace, '', $tableName);
         $className = preg_replace('/[0-9]+/', '', $className);
         $className = StringHelper::singularize($className);
@@ -43,9 +45,9 @@ class ClassGenerator
         $className = str_replace('etum', 'meta', $className);
         return $className;
     }
-    private function generateClasses($tables)
-    {
+    private function generateClasses($tables){
         foreach ($tables as $tableName => $table_type) {
+            $this->tableName = $tableName;
             if (!in_array($tableName, $this->skip_table)) {
                 if(stripos($tableName, '_bp_') === false){continue;}
                 $this->setColumns($tableName);
@@ -60,7 +62,7 @@ class ClassGenerator
                 $content .= NL;
                 $content = $this->addGetterFunctions($content);
                 $filePath = $this->getFilePath($tableName, '/');
-                $className = $this->getClassName($tableName);
+                $className = $this->getClassName();
                 $this->createClassFile($filePath, $content, $className);  // Write file
                 $this->createControllerFile($className, 'get');
                 $this->createControllerFile($className, 'post');
@@ -71,8 +73,7 @@ class ClassGenerator
             }
         }
     }
-    private function getTableComment($table)
-    {
+    private function getTableComment($table){
         $result = Database::select('SHOW TABLE STATUS WHERE NAME="' . $table . '"');
         foreach ($result as $key => $column) {
             if (!empty($column['Comment'])) {
@@ -82,8 +83,7 @@ class ClassGenerator
         }
         return '';
     }
-    private function setColumns($table)
-    {
+    private function setColumns($table){
         $result = Database::select('SHOW COLUMNS FROM `' . $table . '`');
         $this->columns = [];
         foreach ($result as $key => $column)
@@ -99,8 +99,7 @@ class ClassGenerator
         }
         return $this->columnsInfo = $columns;
     }
-    private function setForeignKeys($table)
-    {
+    private function setForeignKeys($table){
         $result = Database::select('SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_SCHEMA, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_NAME IS NOT NULL AND TABLE_NAME = :table', [':table' => $table]);
         $this->foreignKeys = [];
         foreach ($result as $key => $column) {
@@ -126,8 +125,7 @@ class ClassGenerator
         }
         return $columns;
     }
-    public function getPrimaryKeys($table)
-    {
+    public function getPrimaryKeys($table){
         $result = Database::select('SHOW COLUMNS FROM `' . $table . '`');
         $pKeys = [];
         foreach ($result as $key => $column) {
@@ -137,8 +135,7 @@ class ClassGenerator
         }
         return $pKeys;
     }
-    private function mapMysqlTypeWithPhpType($type)
-    {
+    private function mapMysqlTypeWithPhpType($type){
         if (strpos($type, 'int') !== FALSE) {
             return 'int';
         } elseif (strpos($type, 'float') !== FALSE) {
@@ -184,6 +181,36 @@ class '.ucfirst($method).$className.'Controller extends '. ucfirst($method).'Con
     }
 }');
     }
+    /**
+     * @return string
+     */
+    public function getTableName()
+    {
+        return $this->tableName;
+    }
+    /**
+     * @param string $tableName
+     */
+    public function setTableName($tableName)
+    {
+        $this->tableName = $tableName;
+    }
+    /**
+     * @return string
+     */
+    private function getPluralCamelCaseClassName(){
+        $camel = $this->getCamelCaseClassName();
+        return Pluralizer::plural($camel);
+    }
+    /**
+     * @return string
+     */
+    private function getPluralTitleCaseClassName(){
+        return Pluralizer::plural($this->getClassName());
+    }
+    private function getCamelCaseClassName(){
+        return StringHelper::camelize($this->getClassName());
+    }
     private function createResponseFile($className, $method){
         $directory = '/vagrant/slim/Api/Controllers/'.$className;
         $responseClassName = ucfirst($method) . $className . 'Response';
@@ -193,9 +220,9 @@ namespace Quantimodo\Api\Controller\\'.$className.';
 use Quantimodo\Api\Model\QMResponseBody;
 use Quantimodo\Api\Model\\'.$className.';
 class '.$responseClassName.' extends QMResponseBody {
-    public $'.StringHelper::camelize($className).'s;
+    public $'.$this->getPluralCamelCaseClassName().';
     public function __construct(){
-        $this->'.StringHelper::camelize($className).'s = '.$className.'::get();
+        $this->'.$this->getPluralCamelCaseClassName().' = '.$className.'::get();
         parent::__construct();
     }
 }');
@@ -223,9 +250,14 @@ class '.$testClassName.' extends QMTestCase
         \'wp_users\' => \'common/wp_users.xml\',
     ];
     /**
-     * @group api
+     * @group Controllers
      */
     public function testPostAndGet'.$className.'(){
+        $implemented = false;
+        if(!$implemented){
+            $this->markTestSkipped("Test not yet implemented");
+            return;
+        }
         $this->setAuthenticatedUser(1);
         $body = $this->postAndGetDecodedBody(\'v1/'.StringHelper::camelize($className).'\', []);
         $this->assertCount(1, $body->'.StringHelper::camelize($className).');
@@ -257,11 +289,16 @@ class '.$testClassName.' extends QMTestCase
         \'wp_users\' => \'common/wp_users.xml\',
     ];
     /**
-     * @group api
+     * @group Model
      */
     public function testSaveAndGet'.$className.'(){
-        '.StringHelper::camelize($className).' = new '.$className.'();
-        $result = '.StringHelper::camelize($className).'->insertOrUpdate();
+        $implemented = false;
+        if(!$implemented){
+            $this->markTestSkipped("Test not yet implemented");
+            return;
+        }
+        $'.StringHelper::camelize($className).' = new '.$className.'();
+        $result = $'.StringHelper::camelize($className).'->insertOrUpdate();
         $this->assertEquals(1, $result);
         $gotten = '.$className.'::get();
         $this->assertCount(1, $gotten);
@@ -392,10 +429,10 @@ class '.$testClassName.' extends QMTestCase
             $swaggerDefinition->properties->$camel = $swaggerProperty;
             $list_columns[] = $columnName;
         }
-        $className = $this->getClassName($tableName);
+        $className = $this->getClassName();
         $swaggerJson = $this->getSwaggerJson();
         $swaggerJson->definitions->$className = $swaggerDefinition;
-        $responseName = $className.'sResponse';
+        $responseName = $this->getPluralTitleCaseClassName().'Response';
         $swaggerJson->definitions->$responseName = new SwaggerResponseDefinition($className);
         $pathName = '/v3/'.StringHelper::camelize($className);
         if(!isset($swaggerJson->paths->$pathName)){$swaggerJson->paths->$pathName = new stdClass();}
@@ -454,7 +491,7 @@ class '.$testClassName.' extends QMTestCase
      * @return string
      */
     private function addHeader($tableName, $table_type): string {
-        $className = $this->getClassName($tableName);
+        $className = $this->getClassName();
         $this->str_replace_column = $tableName == 'produit' ? [' ', '-'] : array(' ', 'fld_', '-');
         $content = '<?php' . NL ;
         $nameSpace = 'namespace Quantimodo\\'.$this->getFilePath($tableName, '\\');
