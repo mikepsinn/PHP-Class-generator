@@ -174,7 +174,7 @@ class ClassGenerator
         $this->writeToFile($directory, 'routes', $this->routeContent);
     }
     private function createControllerFile($className, $method){
-        $directory = '/vagrant/slim/Api/Controllers/'.$className;
+        $directory = '/vagrant/slim/Api/Controller/'.$className;
         $controllerName = $this->getControllerName($method);
         $this->writeToFile($directory, ucfirst($method) .$className . 'Controller.php',
             '<?php
@@ -479,6 +479,7 @@ class '.$testClassName.' extends QMTestCase
         $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_CONTROLLER => \''.$this->getClassName().'\\\\'.$this->getControllerName('get').'\''. PHP_EOL;
         $this->routeContent .= TAB . TAB . '],'. PHP_EOL;
         $this->routeContent .= TAB . TAB . '['. PHP_EOL;
+        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_METHOD => HttpRequest::METHOD_POST,'. PHP_EOL;
         $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_PATH => \'/v1/'.$this->getPluralCamelCaseClassName().'\','. PHP_EOL;
         $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_AUTH => false,'. PHP_EOL;
         $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_AUTH_SCOPE => \'\','. PHP_EOL;
