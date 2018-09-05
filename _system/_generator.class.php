@@ -59,7 +59,6 @@ class ClassGenerator
                 //$content .= TAB.TAB.'if (!empty($array)) { $this = '.$class.'::readArray($array); }'.PHP_EOL;
                 //$content .= TAB.'}'.PHP_EOL.PHP_EOL;
                 $content = $this->addSetterFunctions($content);
-                $content .= PHP_EOL;
                 $content = $this->addGetterFunctions($content);
                 $filePath = $this->getFilePath($tableName, '/');
                 $className = $this->getClassName();
