@@ -47,6 +47,7 @@ class ClassGenerator
     }
     private function generateClasses($tables){
         foreach ($tables as $tableName => $table_type) {
+            if(stripos($tableName, 'meta') !== false){continue;}
             $this->tableName = $tableName;
             if (!in_array($tableName, $this->skip_table)) {
                 if(stripos($tableName, '_bp_') === false){continue;}
@@ -199,13 +200,16 @@ class '.ucfirst($method).$className.'Controller extends '. ucfirst($method).'Con
      */
     private function getPluralCamelCaseClassName(){
         $camel = $this->getCamelCaseClassName();
-        return Pluralizer::plural($camel);
+        $plural = Pluralizer::plural($camel);
+        return $plural;
     }
     /**
      * @return string
      */
     private function getPluralTitleCaseClassName(){
-        return Pluralizer::plural($this->getClassName());
+        $class = $this->getClassName();
+        $plural = Pluralizer::plural($class);
+        return $plural;
     }
     private function getCamelCaseClassName(){
         return StringHelper::camelize($this->getClassName());
@@ -428,12 +432,15 @@ class '.$testClassName.' extends QMTestCase
             $swaggerDefinition->properties->$camel = $swaggerProperty;
             $list_columns[] = $columnName;
         }
+        $metaProperty = new SwaggerDefinitionProperty();
         $className = $this->getClassName();
+        $metaProperty->setDescription("Additional $className key-value data");
+        $metaProperty->setReference("MetaData");
         $swaggerJson = $this->getSwaggerJson();
         $swaggerJson->definitions->$className = $swaggerDefinition;
         $responseName = $this->getPluralTitleCaseClassName().'Response';
         $swaggerJson->definitions->$responseName = new SwaggerResponseDefinition($className);
-        $pathName = '/v3/'.StringHelper::camelize($className);
+        $pathName = '/v3/'.Pluralizer::plural(StringHelper::camelize($className));
         if(!isset($swaggerJson->paths->$pathName)){$swaggerJson->paths->$pathName = new stdClass();}
         $swaggerJson->paths->$pathName->get = new SwaggerPathMethod("get", $className);
         $swaggerJson->paths->$pathName->post = new SwaggerPathMethod("post", $className);
