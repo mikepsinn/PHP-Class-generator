@@ -184,7 +184,7 @@ class '.$controllerName.' extends '. ucfirst($method).'Controller
 {
     public function '. $method.'(){
         $this->getApp()->setCacheControlHeader(60);
-        $this->writeJsonWithGlobalFields(200, new '.ucfirst($method).$className.'Response());
+        $this->writeJsonWithGlobalFields('.($method === "get") ? "200" : "201".', new '.ucfirst($method).$className.'Response());
     }
 }');
     }
