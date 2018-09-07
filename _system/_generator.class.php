@@ -280,10 +280,12 @@ class '.$testClassName.' extends QMTestCase
         $content .= TAB . "* @return mixed". PHP_EOL;
         $content .= TAB . '*/'. PHP_EOL;
         $content .= TAB . 'public function getPostData() {' . PHP_EOL;
-        $content .= TAB . TAB . '$data = \''. PHP_EOL;
+        $content .= TAB . TAB . '$json = \''. PHP_EOL;
         $content .= TAB . TAB . '' . PHP_EOL;
         $content .= TAB . TAB . '\';' . PHP_EOL;
-        $content .= TAB . TAB . 'return json_decode($data);' . PHP_EOL;
+        $content .= TAB . TAB . '$decoded = json_decode($json);' . PHP_EOL;
+        $content .= TAB . TAB . 'if(!$decoded){throw new QMException(500, "Could not json_decode ".$json);}' . PHP_EOL;
+        $content .= TAB . TAB . 'return $decoded;' . PHP_EOL;
         $content .= TAB . '}' . PHP_EOL;
         $content .= '}' . PHP_EOL;
         $this->writeToFile($directory, $filePath, $content);
