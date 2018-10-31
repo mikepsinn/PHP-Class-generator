@@ -4,12 +4,14 @@ require_once(__DIR__ . '/../../../slim/vendor/autoload.php');
  * ClassGenerator.class.php
  **********************************************************************/
 use Illuminate\Support\Pluralizer;
+use Quantimodo\Api\Model\Helpers\FileHelper;
 use Quantimodo\Api\Model\StringHelper;
 use Quantimodo\Api\Model\Swagger\SwaggerDefinition;
 use Quantimodo\Api\Model\Swagger\SwaggerDefinitionProperty;
 use Quantimodo\Api\Model\Swagger\SwaggerJson;
 use Quantimodo\Api\Model\Swagger\SwaggerPathMethod;
 use Quantimodo\Api\Model\Swagger\SwaggerResponseDefinition;
+use Quantimodo\Object\QMException;
 define('PERMISSION_EXCEPTION', 'Permission error : No permission to write on ' . CLASSGENERATOR_DIR . '.');
 define('SERVER_EXCEPTION', 'Host error : Enter a valid host.');
 define('BASE_EXCEPTION', 'Database error : Enter a valid database.');
@@ -48,15 +50,20 @@ class ClassGenerator
         return $className;
     }
     private function generateClasses($tables){
+        $tablesToExport = [
+            'wp_posts',
+            'wp_postmeta'
+        ];
         foreach ($tables as $tableName => $table_type) {
-            if(stripos($tableName, 'meta') !== false){continue;}
+            $inTablesToExport = in_array($tableName, $tablesToExport);
+            if(stripos($tableName, 'meta') !== false && !$inTablesToExport){continue;}
             $this->tableName = $tableName;
             if (!in_array($tableName, $this->skip_table)) {
-                if(stripos($tableName, '_bp_') === false){continue;}
+                if(stripos($tableName, '_bp_') === false && !$inTablesToExport){continue;}
                 $this->setColumns($tableName);
                 $this->setColumnsInfo($tableName);
                 $this->setForeignKeys($tableName);
-                $content = $this->addHeader($tableName, $table_type);
+                $content = $this->addHeader($tableName);
                 $content = $this->addVariables($tableName, $content);
                 //$content .= TAB.'public function __construct($array = array()) {'.PHP_EOL;
                 //$content .= TAB.TAB.'if (!empty($array)) { $this = '.$class.'::readArray($array); }'.PHP_EOL;
@@ -152,39 +159,24 @@ class ClassGenerator
     }
     private function createClassFile($nameSpace, $text_to_save, $className){
         $directory = '/vagrant/slim/'.$nameSpace;
-        $this->writeToFile($directory, $className . '.php', $text_to_save);
-    }
-    private function writeToFile($directory, $fileName, $content){
-        if (!file_exists($directory)) {
-            mkdir($directory, 0777, true);
-        }
-        chmod($directory, 0777);
-        $filePath = $directory.'/'.$fileName;
-        if (!file_exists($filePath))
-            if (!touch($filePath))
-                $this->exception = PERMISSION_EXCEPTION;
-            else
-                chmod($filePath, 0777);
-        $fp = fopen($filePath, 'w');
-        fwrite($fp, $content);
-        return fclose($fp);
+        FileHelper::writeToFile($directory, $className . '.php', $text_to_save);
     }
     private function createRoutesFile(){
         $directory = '/vagrant';
-        $this->writeToFile($directory, 'routes', $this->routeContent);
+        FileHelper::writeToFile($directory, 'routes', $this->routeContent);
     }
     private function createControllerFile($className, $method){
         $directory = '/vagrant/slim/Api/Controller/'.$className;
         $controllerName = $this->getControllerName($method);
-        $this->writeToFile($directory, ucfirst($method) .$className . 'Controller.php',
+        FileHelper::writeToFile($directory, ucfirst($method) . $className . 'Controller.php',
             '<?php
-namespace Quantimodo\Api\Controller\\'.$className.';
-use Quantimodo\Api\Controller\\'.ucfirst($method).'Controller;
-class '.$controllerName.' extends '. ucfirst($method).'Controller
+namespace Quantimodo\Api\Controller\\' . $className . ';
+use Quantimodo\Api\Controller\\' . ucfirst($method) . 'Controller;
+class ' . $controllerName . ' extends ' . ucfirst($method) . 'Controller
 {
-    public function '. $method.'(){
+    public function ' . $method . '(){
         $this->getApp()->setCacheControlHeader(60);
-        $this->writeJsonWithGlobalFields('.($method === "get") ? "200" : "201".', new '.ucfirst($method).$className.'Response());
+        $this->writeJsonWithGlobalFields(' . ($method === "get") ? "200" : "201" . ', new ' . ucfirst($method) . $className . 'Response());
     }
 }');
     }
@@ -225,14 +217,14 @@ class '.$controllerName.' extends '. ucfirst($method).'Controller
         $directory = '/vagrant/slim/Api/Controllers/'.$className;
         $responseClassName = ucfirst($method) . $className . 'Response';
         $filePath = $responseClassName . '.php';
-        $this->writeToFile($directory, $filePath, '<?php
-namespace Quantimodo\Api\Controller\\'.$className.';
+        FileHelper::writeToFile($directory, $filePath, '<?php
+namespace Quantimodo\Api\Controller\\' . $className . ';
 use Quantimodo\Api\Model\QMResponseBody;
-use Quantimodo\Api\Model\\'.$className.';
-class '.$responseClassName.' extends QMResponseBody {
-    public $'.$this->getPluralCamelCaseClassName().';
+use Quantimodo\Api\Model\\' . $className . ';
+class ' . $responseClassName . ' extends QMResponseBody {
+    public $' . $this->getPluralCamelCaseClassName() . ';
     public function __construct(){
-        $this->'.$this->getPluralCamelCaseClassName().' = '.$className.'::get();
+        $this->' . $this->getPluralCamelCaseClassName() . ' = ' . $className . '::get();
         parent::__construct();
     }
 }');
@@ -288,20 +280,20 @@ class '.$testClassName.' extends QMTestCase
         $content .= TAB . TAB . 'return $decoded;' . PHP_EOL;
         $content .= TAB . '}' . PHP_EOL;
         $content .= '}' . PHP_EOL;
-        $this->writeToFile($directory, $filePath, $content);
+        FileHelper::writeToFile($directory, $filePath, $content);
     }
     private function createModelTestFile($className){
         $directory = '/vagrant/slim/tests/Api/Model';
         $testClassName = $className . 'ModelTest';
         $filePath = $testClassName . '.php';
-        $this->writeToFile($directory, $filePath, '<?php
+        FileHelper::writeToFile($directory, $filePath, '<?php
 namespace QuantimodoTest\Api\Model;
 use QuantimodoTest\Api\QMTestCase;
 /**
- * Class '.$testClassName.'
+ * Class ' . $testClassName . '
  * @package QuantimodoTest\Api\Model
  */
-class '.$testClassName.' extends QMTestCase
+class ' . $testClassName . ' extends QMTestCase
 {
     /**
      * List of fixture files
@@ -315,16 +307,16 @@ class '.$testClassName.' extends QMTestCase
     /**
      * @group Model
      */
-    public function testSaveAndGet'.$className.'(){
+    public function testSaveAndGet' . $className . '(){
         $implemented = false;
         if(!$implemented){
             $this->markTestSkipped("Test not yet implemented");
             return;
         }
-        $'.StringHelper::camelize($className).' = new '.$className.'();
-        $result = $'.StringHelper::camelize($className).'->insertOrUpdate();
+        $' . StringHelper::camelize($className) . ' = new ' . $className . '();
+        $result = $' . StringHelper::camelize($className) . '->insertOrUpdate();
         $this->assertEquals(1, $result);
-        $gotten = '.$className.'::get();
+        $gotten = ' . $className . '::get();
         $this->assertCount(1, $gotten);
     }
 }');
@@ -466,7 +458,7 @@ class '.$testClassName.' extends QMTestCase
         $swaggerJson->definitions->$responseName = new SwaggerResponseDefinition($className);
         $pluralCamel = Pluralizer::plural(StringHelper::camelize($className));
         $pathName = '/v3/'.$pluralCamel;
-        $this->addRoutes($pluralCamel);
+        $this->addRoutes();
         if(!isset($swaggerJson->paths->$pathName)){$swaggerJson->paths->$pathName = new stdClass();}
         $swaggerJson->paths->$pathName->get = new SwaggerPathMethod("get", $className);
         $swaggerJson->paths->$pathName->post = new SwaggerPathMethod("post", $className);
@@ -535,10 +527,9 @@ class '.$testClassName.' extends QMTestCase
     }
     /**
      * @param $tableName
-     * @param $table_type
      * @return string
      */
-    private function addHeader($tableName, $table_type): string {
+    private function addHeader($tableName): string {
         $className = $this->getClassName();
         $this->str_replace_column = $tableName == 'produit' ? [' ', '-'] : array(' ', 'fld_', '-');
         $content = '<?php' . PHP_EOL ;
@@ -554,17 +545,20 @@ class '.$testClassName.' extends QMTestCase
         /***********************************************************************
          * CLASS
          ************************************************************************/
-        $type = ($table_type == 'BASE TABLE') ? 'QMModel' : 'View';
+        //$type = ($table_type == 'BASE TABLE') ? 'QMModel' : 'View';
         $content .= 'class ' . $className . ' extends ' . $this->getBaseModelName() . ' {' . PHP_EOL;
         return $content;
     }
+    /**
+     * @return string
+     * @throws QMException
+     */
     private function getBaseModelName():string{
         foreach ($this->columns as $columnName){
-            if($columnName === 'user_id'){
-                return "UserRelatedModel";
-            }
+            if($columnName === 'user_id'){return "UserRelatedModel";}
             return "QMModel";
         }
+        throw new QMException(500, "getBaseModelName");
     }
     /**
      * @return SwaggerJson
