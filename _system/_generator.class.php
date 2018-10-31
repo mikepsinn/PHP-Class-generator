@@ -521,7 +521,7 @@ class ' . $testClassName . ' extends QMTestCase
         } elseif (stripos('_pmpro_', $tableName) !== false){
             $nameSpace .= $delimiter.'WP'.$delimiter.'PMPRO';
         } elseif (stripos('wp_', $tableName) !== false){
-            $nameSpace .= $delimiter.'WP';
+            $nameSpace = 'QMWP/'. $delimiter.'WP';
         }
         return $nameSpace;
     }
