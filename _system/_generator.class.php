@@ -19,16 +19,18 @@ define('AUTH_EXCEPTION', 'Authentication error : Enter a valid user name and pas
 class ClassGenerator
 {
     private $exception;
-    private $str_replace = array('-');
-    private $str_replace_column = array(' ', '-');
-    private $skip_table = array();
+    private $str_replace = ['-'];
+    private $str_replace_column = [' ', '-'];
+    private $tablesToSkip = [];
     private $columnsInfo;
     private $columns;
     private $foreignKeys;
     private $swaggerJson;
     private $tableName;
     private $routeContent ='';
-    public function __construct(){
+    private $tablesToExport;
+    public function __construct(array $tablesToExport = []){
+        $this->tablesToExport = $tablesToExport;
         $this->swaggerJson = SwaggerJson::get();
         $this->generateClasses($this->getTables());
         SwaggerJson::updateSwaggerJsonFile($this->getSwaggerJson());
@@ -50,30 +52,17 @@ class ClassGenerator
         return $className;
     }
     private function generateClasses($tables){
-        $tablesToExport = [
-            'wp_posts',
-            'wp_postmeta'
-        ];
         foreach ($tables as $tableName => $table_type) {
-            $inTablesToExport = in_array($tableName, $tablesToExport);
-            if($tablesToExport && !$inTablesToExport){continue;}
-            if(stripos($tableName, 'meta') !== false && !$inTablesToExport){continue;}
+            if(!$this->inTablesToExport($tableName) || $this->inTablesToSkip($tableName)){continue;}
             $this->tableName = $tableName;
-            if (!in_array($tableName, $this->skip_table)) {
-                if(stripos($tableName, '_bp_') === false && !$inTablesToExport){continue;}
-                $this->setColumns($tableName);
-                $this->setColumnsInfo($tableName);
-                $this->setForeignKeys($tableName);
-                $filePath = $this->getFilePath($tableName, '/');
-                $className = $this->getClassName();
-                $this->createModelFile($filePath, $className);  // Write file
-                $this->createControllerFile($className, 'get');
-                $this->createControllerFile($className, 'post');
-                $this->createResponseFile($className, 'get');
-                $this->createResponseFile($className, 'post');
-                $this->createControllerTestFile($className);
-                $this->createModelTestFile($className);
-            }
+            $className = $this->getClassName();
+            $this->createModelFile($className);  // Write file
+            $this->createControllerFile($className, 'get');
+            $this->createControllerFile($className, 'post');
+            $this->createResponseFile($className, 'get');
+            $this->createResponseFile($className, 'post');
+            $this->createControllerTestFile($className);
+            $this->createModelTestFile($className);
         }
     }
     private function getTableComment($table){
@@ -151,7 +140,11 @@ class ClassGenerator
             return 'string';
         }
     }
-    private function createModelFile($nameSpace, $className){
+    private function createModelFile($className){
+        $tableName = $this->getTableName();
+        $this->setColumns($tableName);
+        $this->setColumnsInfo($tableName);
+        $this->setForeignKeys($tableName);
         $content = $this->addModelHeader();
         $content = $this->addVariables($content);
         //$content .= TAB.'public function __construct($array = array()) {'.PHP_EOL;
@@ -547,7 +540,9 @@ class ' . $testClassName . ' extends QMTestCase
         $content .= '}' . PHP_EOL;
         return $content;
     }
-    private function getFilePath(string $tableName, $delimiter):string {
+    private function getModelFilePath():string {
+        $delimiter = '/';
+        $tableName = $this->getTableName();
         $nameSpace = 'Api'.$delimiter.'Model';
         if(stripos($tableName, '_bp_') !== false){
             $nameSpace .= $delimiter.'WP'.$delimiter.'BP';
@@ -609,5 +604,25 @@ class ' . $testClassName . ' extends QMTestCase
      */
     private function getControllerName(string $method){
         return ucfirst($method).$this->getClassName().'Controller';
+    }
+    /**
+     * @return array
+     */
+    public function getTablesToExport(): array{
+        return $this->tablesToExport;
+    }
+    /**
+     * @param string $tableName
+     * @return bool
+     */
+    public function inTablesToExport(string $tableName): bool{
+        return in_array($tableName, $this->tablesToExport);
+    }
+    /**
+     * @param string $tableName
+     * @return bool
+     */
+    public function inTablesToSkip(string $tableName): bool{
+        return in_array($tableName, $this->tablesToSkip);
     }
 }
