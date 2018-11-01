@@ -27,14 +27,28 @@ class ClassGenerator
     private $foreignKeys;
     private $swaggerJson;
     private $tableName;
-    private $routeContent ='';
+    private $routeContent = '';
     private $tablesToExport;
     public function __construct(array $tablesToExport = []){
         $this->tablesToExport = $tablesToExport;
         $this->swaggerJson = SwaggerJson::get();
-        $this->generateClasses($this->getTables());
+        $this->generateAllFiles($this->getTables());
         SwaggerJson::updateSwaggerJsonFile($this->getSwaggerJson());
         $this->createRoutesFile();
+    }
+    private function generateAllFiles($tables){
+        foreach ($tables as $tableName => $table_type) {
+            if(!$this->inTablesToExport($tableName) || $this->inTablesToSkip($tableName)){continue;}
+            $this->tableName = $tableName;
+            $className = $this->getClassName();
+            $this->createModelFile($className);  // Write file
+            $this->createControllerFile($className, 'get');
+            $this->createControllerFile($className, 'post');
+            $this->createResponseFile($className, 'get');
+            $this->createResponseFile($className, 'post');
+            $this->createControllerTestFile($className);
+            $this->createModelTestFile($className);
+        }
     }
     /**
      * @return string
@@ -50,20 +64,6 @@ class ClassGenerator
         $className = ucfirst($className);
         //$className = str_replace('WpBp', '', $className);
         return $className;
-    }
-    private function generateClasses($tables){
-        foreach ($tables as $tableName => $table_type) {
-            if(!$this->inTablesToExport($tableName) || $this->inTablesToSkip($tableName)){continue;}
-            $this->tableName = $tableName;
-            $className = $this->getClassName();
-            $this->createModelFile($className);  // Write file
-            $this->createControllerFile($className, 'get');
-            $this->createControllerFile($className, 'post');
-            $this->createResponseFile($className, 'get');
-            $this->createResponseFile($className, 'post');
-            $this->createControllerTestFile($className);
-            $this->createModelTestFile($className);
-        }
     }
     private function getTableComment($table){
         $result = Database::select('SHOW TABLE STATUS WHERE NAME="' . $table . '"');
