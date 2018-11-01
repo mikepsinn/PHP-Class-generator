@@ -41,12 +41,12 @@ class ClassGenerator
         $tableName = $this->getTableName();
         $className = str_replace($this->str_replace, '', $tableName);
         $className = preg_replace('/[0-9]+/', '', $className);
-        $className = StringHelper::singularize($className);
+        if(stripos($tableName, 'meta') === false){
+            $className = StringHelper::singularize($className);
+        }
         $className = StringHelper::camelize($className);
         $className = ucfirst($className);
-        $className = str_replace('WpBp', '', $className);
-        $className = str_replace('Metum', 'Meta', $className);
-        $className = str_replace('etum', 'meta', $className);
+        //$className = str_replace('WpBp', '', $className);
         return $className;
     }
     private function generateClasses($tables){
@@ -56,6 +56,7 @@ class ClassGenerator
         ];
         foreach ($tables as $tableName => $table_type) {
             $inTablesToExport = in_array($tableName, $tablesToExport);
+            if($tablesToExport && !$inTablesToExport){continue;}
             if(stripos($tableName, 'meta') !== false && !$inTablesToExport){continue;}
             $this->tableName = $tableName;
             if (!in_array($tableName, $this->skip_table)) {
@@ -63,16 +64,9 @@ class ClassGenerator
                 $this->setColumns($tableName);
                 $this->setColumnsInfo($tableName);
                 $this->setForeignKeys($tableName);
-                $content = $this->addHeader($tableName);
-                $content = $this->addVariables($tableName, $content);
-                //$content .= TAB.'public function __construct($array = array()) {'.PHP_EOL;
-                //$content .= TAB.TAB.'if (!empty($array)) { $this = '.$class.'::readArray($array); }'.PHP_EOL;
-                //$content .= TAB.'}'.PHP_EOL.PHP_EOL;
-                $content = $this->addSetterFunctions($content);
-                $content = $this->addGetterFunctions($content);
                 $filePath = $this->getFilePath($tableName, '/');
                 $className = $this->getClassName();
-                $this->createClassFile($filePath, $content, $className);  // Write file
+                $this->createModelFile($filePath, $className);  // Write file
                 $this->createControllerFile($className, 'get');
                 $this->createControllerFile($className, 'post');
                 $this->createResponseFile($className, 'get');
@@ -157,26 +151,36 @@ class ClassGenerator
             return 'string';
         }
     }
-    private function createClassFile($nameSpace, $text_to_save, $className){
-        $directory = '/vagrant/slim/'.$nameSpace;
-        FileHelper::writeToFile($directory, $className . '.php', $text_to_save);
+    private function createModelFile($nameSpace, $className){
+        $content = $this->addModelHeader();
+        $content = $this->addVariables($content);
+        //$content .= TAB.'public function __construct($array = array()) {'.PHP_EOL;
+        //$content .= TAB.TAB.'if (!empty($array)) { $this = '.$class.'::readArray($array); }'.PHP_EOL;
+        //$content .= TAB.'}'.PHP_EOL.PHP_EOL;
+        $content = $this->addSetterFunctions($content);
+        $content = $this->addGetterFunctions($content);
+        $directory = $this->appendWPIfNecessary('/vagrant/slim/Api/Model');
+        FileHelper::writeToFile($directory, $className . '.php', $content);
     }
     private function createRoutesFile(){
         $directory = '/vagrant';
         FileHelper::writeToFile($directory, 'routes', $this->routeContent);
     }
     private function createControllerFile($className, $method){
-        $directory = '/vagrant/slim/Api/Controller/'.$className;
+        $directory = $this->appendWPIfNecessary('/vagrant/slim/Api/Controller/').'/'.$className;
         $controllerName = $this->getControllerName($method);
+        $nameSpace = $this->appendWPIfNecessary('Quantimodo\Api\Controller').'\\'. $className;
+        $responseName = ucfirst($method) . $className . 'Response';
+        $responseCode = ($method === "get") ? "200" : "201";
         FileHelper::writeToFile($directory, ucfirst($method) . $className . 'Controller.php',
             '<?php
-namespace Quantimodo\Api\Controller\\' . $className . ';
+namespace '.$nameSpace.';
 use Quantimodo\Api\Controller\\' . ucfirst($method) . 'Controller;
 class ' . $controllerName . ' extends ' . ucfirst($method) . 'Controller
 {
     public function ' . $method . '(){
         $this->getApp()->setCacheControlHeader(60);
-        $this->writeJsonWithGlobalFields(' . ($method === "get") ? "200" : "201" . ', new ' . ucfirst($method) . $className . 'Response());
+        $this->writeJsonWithGlobalFields(' . $responseCode . ', new ' . $responseName . '());
     }
 }');
     }
@@ -214,11 +218,12 @@ class ' . $controllerName . ' extends ' . ucfirst($method) . 'Controller
         return StringHelper::camelize($this->getClassName());
     }
     private function createResponseFile($className, $method){
-        $directory = '/vagrant/slim/Api/Controllers/'.$className;
+        $directory = $this->appendWPIfNecessary('/vagrant/slim/Api/Controllers/').'/'.$className;
         $responseClassName = ucfirst($method) . $className . 'Response';
         $filePath = $responseClassName . '.php';
+        $nameSpace = $this->appendWPIfNecessary('Quantimodo\Api\Controllers').'\\'.$className;
         FileHelper::writeToFile($directory, $filePath, '<?php
-namespace Quantimodo\Api\Controller\\' . $className . ';
+namespace ' . $nameSpace . ';
 use Quantimodo\Api\Model\QMResponseBody;
 use Quantimodo\Api\Model\\' . $className . ';
 class ' . $responseClassName . ' extends QMResponseBody {
@@ -229,16 +234,17 @@ class ' . $responseClassName . ' extends QMResponseBody {
     }
 }');
     }
-    private function createControllerTestFile($className){
-        $directory = '/vagrant/slim/tests/Api/Controllers';
+    private function createControllerTestFile(string $className){
+        $directory = $this->appendWPIfNecessary('/vagrant/slim/tests/Api/Controllers');
         $testClassName = $className . 'ControllerTest';
         $filePath = $testClassName . '.php';
+        $nameSpace = $this->appendWPIfNecessary('QuantimodoTest\Api\Controllers');
         $content = '<?php
-namespace QuantimodoTest\Api\Controllers;
+namespace '.$nameSpace.';
 use QuantimodoTest\Api\QMTestCase;
 /**
  * Class '.$testClassName.'
- * @package QuantimodoTest\Api\Controllers
+ * @package '.$nameSpace.'
  */
 class '.$testClassName.' extends QMTestCase
 {
@@ -282,16 +288,37 @@ class '.$testClassName.' extends QMTestCase
         $content .= '}' . PHP_EOL;
         FileHelper::writeToFile($directory, $filePath, $content);
     }
-    private function createModelTestFile($className){
-        $directory = '/vagrant/slim/tests/Api/Model';
+    /**
+     * @return bool
+     */
+    private function isWpTable(){
+        return stripos($this->getTableName(), 'wp_') === 0;
+    }
+    /**
+     * @param string $string
+     * @return string
+     */
+    private function appendWPIfNecessary(string $string):string {
+        if($this->isWpTable()){
+            if(stripos($string, '/') !== false){
+                $string .= '/WP';
+            } else {
+                $string .= '\WP';
+            }
+        }
+        return $string;
+    }
+    private function createModelTestFile(string $className){
+        $directory = $this->appendWPIfNecessary('/vagrant/slim/tests/Api/Model');
         $testClassName = $className . 'ModelTest';
         $filePath = $testClassName . '.php';
+        $nameSpace = $this->appendWPIfNecessary('QuantimodoTest\Api\Controllers');
         FileHelper::writeToFile($directory, $filePath, '<?php
-namespace QuantimodoTest\Api\Model;
+namespace '.$nameSpace.';
 use QuantimodoTest\Api\QMTestCase;
 /**
  * Class ' . $testClassName . '
- * @package QuantimodoTest\Api\Model
+ * @package '.$nameSpace.'
  */
 class ' . $testClassName . ' extends QMTestCase
 {
@@ -356,11 +383,15 @@ class ' . $testClassName . ' extends QMTestCase
             $functionName = 'set_' . $str_column;
             $functionName = StringHelper::camelize($functionName);
             $camel = StringHelper::camelize($str_column);
+            $defaultString = '';
+            if($str_column === 'created_at' || $str_column === 'updated_at'){
+                $defaultString = ' = null';
+            }
             $content .= TAB . '/**'. PHP_EOL;
             $content .= TAB . "* @param $type $camel". PHP_EOL;
             $content .= TAB . "* @return $type". PHP_EOL;
             $content .= TAB . '*/'. PHP_EOL;
-            $content .= TAB . 'public function ' . $functionName . '(' . $type . ' $' . $camel . ') {' . PHP_EOL;
+            $content .= TAB . 'public function ' . $functionName . '(' . $type . ' $' . $camel . $defaultString . ') {' . PHP_EOL;
             $content .= TAB . TAB . '$originalValue = $this->'.$camel.';'. PHP_EOL;
             $content .= TAB . TAB . 'if ($originalValue !== $' . $camel . '){' . PHP_EOL;
             $content .= TAB . TAB . TAB . '$this->modifiedFields[\'' . $str_column . '\'] = 1;' . PHP_EOL;
@@ -379,8 +410,8 @@ class ' . $testClassName . ' extends QMTestCase
      * @param $content
      * @return string
      */
-    private function addVariables($tableName, $content): string
-    {
+    private function addVariables($content): string{
+        $tableName = $this->getTableName();
         /***********************************************************************
          * VARIABLES
          ************************************************************************/
@@ -470,14 +501,16 @@ class ' . $testClassName . ' extends QMTestCase
         $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_PATH => \'/v1/'.$this->getPluralCamelCaseClassName().'\','. PHP_EOL;
         $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_AUTH => false,'. PHP_EOL;
         $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_AUTH_SCOPE => \'\','. PHP_EOL;
-        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_CONTROLLER => \''.$this->getClassName().'\\\\'.$this->getControllerName('get').'\''. PHP_EOL;
+        $namespace = $this->getClassName();
+        if($this->isWpTable()){$namespace = 'WP'.'\\\\'.$namespace;}
+        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_CONTROLLER => \''.$namespace.'\\\\'.$this->getControllerName('get').'\''. PHP_EOL;
         $this->routeContent .= TAB . TAB . '],'. PHP_EOL;
         $this->routeContent .= TAB . TAB . '['. PHP_EOL;
         $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_METHOD => HttpRequest::METHOD_POST,'. PHP_EOL;
         $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_PATH => \'/v1/'.$this->getPluralCamelCaseClassName().'\','. PHP_EOL;
         $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_AUTH => false,'. PHP_EOL;
         $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_AUTH_SCOPE => \'\','. PHP_EOL;
-        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_CONTROLLER => \''.$this->getClassName().'\\\\'.$this->getControllerName('post').'\''. PHP_EOL;
+        $this->routeContent .= TAB . TAB . TAB . 'self::FIELD_CONTROLLER => \''.$namespace.'\\\\'.$this->getControllerName('post').'\''. PHP_EOL;
         $this->routeContent .= TAB . TAB . '],'. PHP_EOL;
     }
     /**
@@ -516,12 +549,12 @@ class ' . $testClassName . ' extends QMTestCase
     }
     private function getFilePath(string $tableName, $delimiter):string {
         $nameSpace = 'Api'.$delimiter.'Model';
-        if(stripos('_bp_', $tableName) !== false){
+        if(stripos($tableName, '_bp_') !== false){
             $nameSpace .= $delimiter.'WP'.$delimiter.'BP';
-        } elseif (stripos('_pmpro_', $tableName) !== false){
+        } elseif (stripos($tableName, '_pmpro_') !== false){
             $nameSpace .= $delimiter.'WP'.$delimiter.'PMPRO';
-        } elseif (stripos('wp_', $tableName) !== false){
-            $nameSpace = 'QMWP/'. $delimiter.'WP';
+        } elseif (stripos($tableName, 'wp_') !== false){
+            $nameSpace = $delimiter.'WP';
         }
         return $nameSpace;
     }
@@ -529,11 +562,12 @@ class ' . $testClassName . ' extends QMTestCase
      * @param $tableName
      * @return string
      */
-    private function addHeader($tableName): string {
+    private function addModelHeader(): string {
+        $tableName = $this->getTableName();
         $className = $this->getClassName();
         $this->str_replace_column = $tableName == 'produit' ? [' ', '-'] : array(' ', 'fld_', '-');
         $content = '<?php' . PHP_EOL ;
-        $nameSpace = 'namespace Quantimodo\\'.$this->getFilePath($tableName, '\\');
+        $nameSpace = $this->appendWPIfNecessary('namespace Quantimodo\Api\Model').'\\'.$className;
         $content .= $nameSpace.';' . PHP_EOL ;
         $comment = $this->getTableComment($tableName);
         if(!empty($comment)){
@@ -554,6 +588,9 @@ class ' . $testClassName . ' extends QMTestCase
      * @throws QMException
      */
     private function getBaseModelName():string{
+        if($this->isWpTable()){
+            return 'QMWP';
+        }
         foreach ($this->columns as $columnName){
             if($columnName === 'user_id'){return "UserRelatedModel";}
             return "QMModel";
